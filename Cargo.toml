@@ -1,0 +1,25 @@
+[package]
+edition = "2018"
+name = "dps310"
+version = "0.1.1"
+authors = ["dprotsiv"]
+description = "A platform agnostic driver to interface with the DPS310 barometric pressure & temp sensor through I2C"
+documentation = "https://docs.rs/dps310"
+readme = "README.md"
+keywords = ["embedded-hal-driver", "pressure", "temperature", "sensor", "infineon"]
+categories = ["embedded", "hardware-support", "no-std"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/dprotsiv/dps310-rs"
+[package.metadata.docs.rs]
+targets = ["thumbv6m-none-eabi"]
+[dependencies.embedded-hal]
+version = "0.2.4"
+[dev-dependencies.cortex-m]
+version = "0.6.4"
+[dev-dependencies.cortex-m-rt]
+version = "0.6.13"
+[dev-dependencies.panic-halt]
+version = "0.2.0"
+[dependencies.stm32f3xx-hal-v2]
+version = "0.5.0"
+features=["stm32f303xc"]
