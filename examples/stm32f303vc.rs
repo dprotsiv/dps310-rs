@@ -8,7 +8,7 @@
 // cortex-m-rt = "0.6.3"
 // panic-itm = "0.4.0"
 // panic-halt = "0.2.0"
-// dps310 = "0.1.0"
+// dps310 = "0.1.2"
 
 #![feature(core_intrinsics)]
 #![no_main]

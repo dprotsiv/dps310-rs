@@ -1,7 +1,7 @@
 [package]
 edition = "2018"
 name = "dps310"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["dprotsiv"]
 description = "A platform agnostic driver to interface with the DPS310 barometric pressure & temp sensor through I2C"
 documentation = "https://docs.rs/dps310"
@@ -20,6 +20,7 @@ version = "0.6.4"
 version = "0.6.13"
 [dev-dependencies.panic-halt]
 version = "0.2.0"
-[dependencies.stm32f3xx-hal-v2]
-version = "0.5.0"
-features=["stm32f303xc"]
+
+[dependencies.stm32f3]
+version = "0.12.1"
+features = ["stm32f303", "rt"]
