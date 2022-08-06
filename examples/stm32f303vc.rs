@@ -1,6 +1,5 @@
 // Sample code for stm32f3discovery (STM32F303VC) board
 
-
 // Add following to Cargo.toml
 // m = "0.1.1"
 // f3 = "0.6.1"
@@ -17,12 +16,10 @@ use core::convert::TryInto;
 
 pub use cortex_m::{asm::bkpt, iprint, iprintln, peripheral::ITM};
 pub use cortex_m_rt::entry;
-pub use stm32f3xx_hal::{
-    delay::Delay, i2c::I2c, prelude::*, pac::Peripherals
-};
 use panic_halt as _;
+pub use stm32f3xx_hal::{delay::Delay, i2c::I2c, pac::Peripherals, prelude::*};
 
-use dps310::{DPS310, self};
+use dps310::{self, DPS310};
 
 const ADDRESS: u8 = 0x77;
 
@@ -32,8 +29,8 @@ fn main() -> ! {
     let dp = Peripherals::take().unwrap();
 
     // setup ITM output
-    let  stim = &mut cp.ITM.stim[0];
-    
+    let stim = &mut cp.ITM.stim[0];
+
     let mut flash = dp.FLASH.constrain();
     let mut rcc = dp.RCC.constrain();
 
@@ -70,7 +67,7 @@ fn main() -> ! {
         let compl = dps.init_complete();
         init_done = match compl {
             Ok(c) => c,
-            Err(_e) => false
+            Err(_e) => false,
         };
 
         delay.delay_ms(200_u8);
@@ -89,8 +86,6 @@ fn main() -> ! {
         if dps.pres_ready().unwrap() {
             let pressure = dps.read_pressure_calibrated().unwrap();
             iprintln!(stim, "pressure: {:.1} [Pa]", pressure);
-            
         }
-        
     }
 }

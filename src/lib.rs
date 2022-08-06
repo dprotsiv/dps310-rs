@@ -53,7 +53,6 @@ impl CalbrationCoeffs {
     }
 }
 
-
 pub struct DPS310<I2C> {
     i2c: I2C,
     address: u8,
@@ -218,9 +217,11 @@ where
     /// Read raw pressure contents
     pub fn read_pressure_raw(&mut self) -> Result<i32, E> {
         let mut bytes: [u8; 3] = [0, 0, 0];
-        self.i2c.write_read(self.address, &[Register::PSR_B2.addr()], &mut bytes)?;
+        self.i2c
+            .write_read(self.address, &[Register::PSR_B2.addr()], &mut bytes)?;
 
-        let pressure: i32 = (((bytes[0] as i32) << 24) | ((bytes[1] as i32) << 16) | (bytes[2] as i32) << 8) >> 8;
+        let pressure: i32 =
+            (((bytes[0] as i32) << 24) | ((bytes[1] as i32) << 16) | (bytes[2] as i32) << 8) >> 8;
 
         Ok(pressure)
     }
@@ -241,10 +242,15 @@ where
         let pres_scaled = self.read_pressure_scaled()?;
         let temp_scaled = self.read_temp_scaled()?;
 
-        let pres_cal = (self.coeffs.C00 as f32) +
-            (pres_scaled * (self.coeffs.C10 as f32 + pres_scaled * (self.coeffs.C20 as f32 + pres_scaled * self.coeffs.C30 as f32)))  +
-            (temp_scaled * self.coeffs.C01 as f32) +
-            (temp_scaled * pres_scaled * (self.coeffs.C11 as f32 + pres_scaled * self.coeffs.C21 as f32));
+        let pres_cal = (self.coeffs.C00 as f32)
+            + (pres_scaled
+                * (self.coeffs.C10 as f32
+                    + pres_scaled
+                        * (self.coeffs.C20 as f32 + pres_scaled * self.coeffs.C30 as f32)))
+            + (temp_scaled * self.coeffs.C01 as f32)
+            + (temp_scaled
+                * pres_scaled
+                * (self.coeffs.C11 as f32 + pres_scaled * self.coeffs.C21 as f32));
 
         Ok(pres_cal)
     }
@@ -261,7 +267,8 @@ where
 
     fn read_reg(&mut self, reg: Register) -> Result<u8, E> {
         let mut buffer: [u8; 1] = [0];
-        self.i2c.write_read(self.address, &[reg.addr()], &mut buffer)?;
+        self.i2c
+            .write_read(self.address, &[reg.addr()], &mut buffer)?;
         Ok(buffer[0])
     }
 
@@ -272,50 +279,71 @@ where
     fn read_calibration_coefficients(&mut self) -> Result<(), E> {
         let mut bytes: [u8; 18] = [0; 18];
 
-        self.i2c.write_read(self.address, &[Register::COEFF_REG_1.addr()], &mut bytes)?;
+        self.i2c
+            .write_read(self.address, &[Register::COEFF_REG_1.addr()], &mut bytes)?;
 
         let _c0 = ((bytes[0] as u32) << 4) | (((bytes[1] as u32) >> 4) & 0x0F);
 
         // C0 12bits 2's complement
-        self.coeffs.C0 = self.get_twos_complement(((bytes[0] as u32) << 4) | (((bytes[1] as u32) >> 4) & 0x0F), 12);
+        self.coeffs.C0 = self.get_twos_complement(
+            ((bytes[0] as u32) << 4) | (((bytes[1] as u32) >> 4) & 0x0F),
+            12,
+        );
 
         let _c1 = (((bytes[1] as u32) & 0x0F) << 8) | (bytes[2] as u32);
         // C1 12bits 2's complement
-        self.coeffs.C1 = self.get_twos_complement((((bytes[1] as u32) & 0x0F) << 8) | (bytes[2] as u32), 12);
+        self.coeffs.C1 =
+            self.get_twos_complement((((bytes[1] as u32) & 0x0F) << 8) | (bytes[2] as u32), 12);
 
-        let _c00 = ((bytes[3] as u32) << 12) | ((bytes[4] as u32) << 4) | (((bytes[5] as u32) >> 4) & 0x0F);
+        let _c00 = ((bytes[3] as u32) << 12)
+            | ((bytes[4] as u32) << 4)
+            | (((bytes[5] as u32) >> 4) & 0x0F);
 
         // C00 20bits 2's complement
-        self.coeffs.C00 = self.get_twos_complement(((bytes[3] as u32) << 12) | ((bytes[4] as u32) << 4) | (((bytes[5] as u32) >> 4) & 0x0F), 20);
+        self.coeffs.C00 = self.get_twos_complement(
+            ((bytes[3] as u32) << 12)
+                | ((bytes[4] as u32) << 4)
+                | (((bytes[5] as u32) >> 4) & 0x0F),
+            20,
+        );
 
-        let _c10 = (((bytes[5] as u32) & 0x0F) << 16) | ((bytes[6] as u32) << 8) | (bytes[7] as u32);
+        let _c10 =
+            (((bytes[5] as u32) & 0x0F) << 16) | ((bytes[6] as u32) << 8) | (bytes[7] as u32);
         // C10 20bits 2's complement
-        self.coeffs.C10 = self.get_twos_complement((((bytes[5] as u32) & 0x0F) << 16) | ((bytes[6] as u32) << 8) | (bytes[7] as u32), 20);
+        self.coeffs.C10 = self.get_twos_complement(
+            (((bytes[5] as u32) & 0x0F) << 16) | ((bytes[6] as u32) << 8) | (bytes[7] as u32),
+            20,
+        );
 
         let _c01 = ((bytes[8] as u32) << 8) | (bytes[9] as u32);
 
         // C01 16bits 2's complement
-        self.coeffs.C01 = self.get_twos_complement(((bytes[8] as u32) << 8) | (bytes[9] as u32), 16);
+        self.coeffs.C01 =
+            self.get_twos_complement(((bytes[8] as u32) << 8) | (bytes[9] as u32), 16);
 
         let _c11 = ((bytes[10] as u32) << 8) | (bytes[11] as u32);
 
         // C11 16bits 2's complement
-        self.coeffs.C11 = self.get_twos_complement(((bytes[10] as u32) << 8) | (bytes[11] as u32), 16);
+        self.coeffs.C11 =
+            self.get_twos_complement(((bytes[10] as u32) << 8) | (bytes[11] as u32), 16);
 
         let _c20 = ((bytes[12] as u32) << 8) | (bytes[13] as u32);
 
         // C20 16bits 2's complement
-        self.coeffs.C20 = self.get_twos_complement(((bytes[12] as u32) << 8) | (bytes[13] as u32), 16);
+        self.coeffs.C20 =
+            self.get_twos_complement(((bytes[12] as u32) << 8) | (bytes[13] as u32), 16);
 
         let _c21 = ((bytes[14] as u32) << 8) | (bytes[15] as u32);
 
         // C21 16bits 2's complement
-        self.coeffs.C21 = self.get_twos_complement(((bytes[14] as u32) << 8) | (bytes[15] as u32), 16);
+        self.coeffs.C21 =
+            self.get_twos_complement(((bytes[14] as u32) << 8) | (bytes[15] as u32), 16);
 
         let _c30 = ((bytes[16] as u32) << 8) | (bytes[17] as u32);
 
         // C30 16bits 2's complement
-        self.coeffs.C30 = self.get_twos_complement(((bytes[16] as u32) << 8) | (bytes[17] as u32), 16);
+        self.coeffs.C30 =
+            self.get_twos_complement(((bytes[16] as u32) << 8) | (bytes[17] as u32), 16);
 
         Ok(())
     }
