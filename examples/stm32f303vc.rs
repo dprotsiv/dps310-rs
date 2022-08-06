@@ -10,29 +10,26 @@
 // panic-halt = "0.2.0"
 // dps310 = "0.1.2"
 
-#![feature(core_intrinsics)]
 #![no_main]
 #![no_std]
-#[allow(unused_imports)]
-#[allow(unused_extern_crates)] // NOTE(allow) bug rust-lang/rust#53964
 
-
-extern crate panic_itm; // panic handler
+use core::convert::TryInto;
 
 pub use cortex_m::{asm::bkpt, iprint, iprintln, peripheral::ITM};
 pub use cortex_m_rt::entry;
-pub use f3::{
-    hal::{delay::Delay, i2c::I2c, prelude::*, stm32f30x},
+pub use stm32f3xx_hal::{
+    delay::Delay, i2c::I2c, prelude::*, pac::Peripherals
 };
-
+use panic_halt as _;
 
 use dps310::{DPS310, self};
 
+const ADDRESS: u8 = 0x77;
 
 #[entry]
 fn main() -> ! {
     let mut cp = cortex_m::Peripherals::take().unwrap();
-    let dp = stm32f30x::Peripherals::take().unwrap();
+    let dp = Peripherals::take().unwrap();
 
     // setup ITM output
     let  stim = &mut cp.ITM.stim[0];
@@ -44,17 +41,28 @@ fn main() -> ! {
 
     let mut delay = Delay::new(cp.SYST, clocks);
 
-    
     let mut gpiob = dp.GPIOB.split(&mut rcc.ahb);
-    let scl = gpiob.pb6.into_af4(&mut gpiob.moder, &mut gpiob.afrl);
-    let sda = gpiob.pb7.into_af4(&mut gpiob.moder, &mut gpiob.afrl);
 
-    let i2c = I2c::i2c1(dp.I2C1, (scl, sda), 400.khz(), clocks, &mut rcc.apb1);
-    
-    
-    let address = 0x77;
+    // Configure I2C1
+    let mut scl =
+        gpiob
+            .pb6
+            .into_af_open_drain(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
+    let mut sda =
+        gpiob
+            .pb7
+            .into_af_open_drain(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
+    scl.internal_pull_up(&mut gpiob.pupdr, true);
+    sda.internal_pull_up(&mut gpiob.pupdr, true);
+    let i2c = I2c::new(
+        dp.I2C1,
+        (scl, sda),
+        100.kHz().try_into().unwrap(),
+        clocks,
+        &mut rcc.apb1,
+    );
 
-    let mut dps = DPS310::new(i2c, address, &dps310::Config::new()).unwrap();
+    let mut dps = DPS310::new(i2c, ADDRESS, &dps310::Config::new()).unwrap();
     let mut init_done = false;
     iprintln!(stim, "Wait for init done..");
 
