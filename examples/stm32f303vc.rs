@@ -60,20 +60,22 @@ fn main() -> ! {
     );
 
     let mut dps = DPS310::new(i2c, ADDRESS, &dps310::Config::new()).unwrap();
-    let mut init_done = false;
+
     iprintln!(stim, "Wait for init done..");
-
-    while !init_done {
-        let compl = dps.init_complete();
-        init_done = match compl {
-            Ok(c) => c,
-            Err(_e) => false,
-        };
-
+    while !dps.init_complete().unwrap() {
         delay.delay_ms(200_u8);
     }
+    iprintln!(stim, "Sensor init done");
 
-    iprintln!(stim, "pressure sensor init done");
+    iprintln!(stim, "Wait for coef ready..");
+    while !dps.coef_ready().unwrap() {
+        delay.delay_ms(200_u8);
+    }
+    iprintln!(stim, "Sensor coefficients ready");
+
+    dps.read_calibration_coefficients().unwrap();
+    iprintln!(stim, "Sensor calibrated");
+
     dps.trigger_measurement(true, true, true).unwrap();
 
     loop {

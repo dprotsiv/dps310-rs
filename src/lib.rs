@@ -79,7 +79,6 @@ where
         let id: u8 = dsp310.get_product_id()?;
         if id != PRODUCT_ID {}
 
-        dsp310.read_calibration_coefficients().ok();
         dsp310.apply_config(config)?;
         dsp310.standby().ok();
 
@@ -166,6 +165,13 @@ where
         self.write_reg(Register::MEAS_CFG, meas_cfg)
     }
 
+    /// returns true if sensor coeficients are available
+    pub fn coef_ready(&mut self) -> Result<bool, E> {
+        // see  sec 8.5, MEAS_CFG, COEF_RDY field (bit 7)
+        let status = self.read_status()?;
+        Ok((status & (1 << 7)) != 0)
+    }
+
     /// returns the sensor_ready bit from the status register
     pub fn init_complete(&mut self) -> Result<bool, E> {
         // see  sec 8.5, MEAS_CFG, SENSOR_RDY field (bit 6)
@@ -203,8 +209,11 @@ where
         Ok(raw_sc)
     }
 
-    /// Read calibrated temperature data in degrees Celsius
+    /// Read calibrated temperature data in degrees Celsius.
+    /// 
     /// This method uses the pre calculated constants based on the calibration coefficients
+    /// which have to be initialized with [read_calibration_coefficients()] beforehand.
+    /// 
     /// See section 4.9.2 in the datasheet (formula), Sec 8.11 (coefficients)
     pub fn read_temp_calibrated(&mut self) -> Result<f32, E> {
         let scaled = self.read_temp_scaled();
@@ -234,10 +243,13 @@ where
         Ok(pres_scaled)
     }
 
-    /// Read calibrated pressure data in Pa
-    /// This method uses the calibration coefficients
-    /// See section 8.11 in the datasheet
-    /// See section 4.9.1 for calculation method
+    /// Read calibrated pressure data in Pa.
+    /// 
+    /// This method uses the pre calculated constants based on the calibration coefficients
+    /// which have to be initialized with [read_calibration_coefficients()] beforehand.
+    /// 
+    /// See section 8.11 in the datasheet.
+    /// See section 4.9.1 for calculation method.
     pub fn read_pressure_calibrated(&mut self) -> Result<f32, E> {
         let pres_scaled = self.read_pressure_scaled()?;
         let temp_scaled = self.read_temp_scaled()?;
@@ -276,7 +288,7 @@ where
     ///
     /// See https://github.com/Infineon/DPS310-Pressure-Sensor/blob/888200c7efd8edb19ce69a2144e28ba31cdad449/src/Dps310.cpp#L89
     /// See Sec 8.11
-    fn read_calibration_coefficients(&mut self) -> Result<(), E> {
+    pub fn read_calibration_coefficients(&mut self) -> Result<(), E> {
         let mut bytes: [u8; 18] = [0; 18];
 
         self.i2c
