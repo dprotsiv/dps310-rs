@@ -170,20 +170,20 @@ where
     pub fn init_complete(&mut self) -> Result<bool, E> {
         // see  sec 8.5, MEAS_CFG, SENSOR_RDY field (bit 6)
         let status = self.read_status()?;
-        Ok((status & 0x64) != 0)
+        Ok((status & (1 << 6)) != 0)
     }
 
     /// returns the temp_ready bit from the status register
     pub fn temp_ready(&mut self) -> Result<bool, E> {
         // See sec 8.5 TMP_RDY field
         let status = self.read_status()?;
-        Ok((status & 0x20) != 0)
+        Ok((status & (1 << 5)) != 0)
     }
 
     pub fn pres_ready(&mut self) -> Result<bool, E> {
         // See sec 8.5 PRS_RDY field
         let status = self.read_status()?;
-        Ok((status & 0x10) != 0)
+        Ok((status & (1 << 4)) != 0)
     }
 
     /// Read raw temperature contents
