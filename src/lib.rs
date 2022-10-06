@@ -1,5 +1,5 @@
 //!
-//! DSP310 embedded-hal I2C driver crate
+//! DPS310 embedded-hal I2C driver crate
 //!
 //! A platform agnostic driver to interface with the DSP310 barometric pressure & temp sensor.
 //! This driver uses I2C via [embedded-hal]. Note that the DSP310 also supports SPI, however that
@@ -165,27 +165,28 @@ where
         self.write_reg(Register::MEAS_CFG, meas_cfg)
     }
 
-    /// returns true if sensor coeficients are available
+    /// Returns true if sensor coeficients are available
     pub fn coef_ready(&mut self) -> Result<bool, E> {
         // see  sec 8.5, MEAS_CFG, COEF_RDY field (bit 7)
         let status = self.read_status()?;
         Ok((status & (1 << 7)) != 0)
     }
 
-    /// returns the sensor_ready bit from the status register
+    /// Returns true if sensor initialized and ready to take measurements
     pub fn init_complete(&mut self) -> Result<bool, E> {
         // see  sec 8.5, MEAS_CFG, SENSOR_RDY field (bit 6)
         let status = self.read_status()?;
         Ok((status & (1 << 6)) != 0)
     }
 
-    /// returns the temp_ready bit from the status register
+    /// Returns true if temperature measurement is ready
     pub fn temp_ready(&mut self) -> Result<bool, E> {
         // See sec 8.5 TMP_RDY field
         let status = self.read_status()?;
         Ok((status & (1 << 5)) != 0)
     }
 
+    /// Returns true if pressure measurement is ready
     pub fn pres_ready(&mut self) -> Result<bool, E> {
         // See sec 8.5 PRS_RDY field
         let status = self.read_status()?;
@@ -212,7 +213,7 @@ where
     /// Read calibrated temperature data in degrees Celsius.
     /// 
     /// This method uses the pre calculated constants based on the calibration coefficients
-    /// which have to be initialized with [read_calibration_coefficients()] beforehand.
+    /// which have to be initialized with [Self::read_calibration_coefficients()] beforehand.
     /// 
     /// See section 4.9.2 in the datasheet (formula), Sec 8.11 (coefficients)
     pub fn read_temp_calibrated(&mut self) -> Result<f32, E> {
@@ -246,7 +247,7 @@ where
     /// Read calibrated pressure data in Pa.
     /// 
     /// This method uses the pre calculated constants based on the calibration coefficients
-    /// which have to be initialized with [read_calibration_coefficients()] beforehand.
+    /// which have to be initialized with [Self::read_calibration_coefficients()] beforehand.
     /// 
     /// See section 8.11 in the datasheet.
     /// See section 4.9.1 for calculation method.
@@ -284,9 +285,10 @@ where
         Ok(buffer[0])
     }
 
-    /// Read calibration coefficients. Taken from official Arduino library
+    /// Read calibration coefficients. User must wait for `Self::coef_ready()` to return true before reading coefficients.
     ///
-    /// See https://github.com/Infineon/DPS310-Pressure-Sensor/blob/888200c7efd8edb19ce69a2144e28ba31cdad449/src/Dps310.cpp#L89
+    /// Taken from official Arduino library, see <https://github.com/Infineon/DPS310-Pressure-Sensor/blob/888200c7efd8edb19ce69a2144e28ba31cdad449/src/Dps310.cpp#L89>
+    /// 
     /// See Sec 8.11
     pub fn read_calibration_coefficients(&mut self) -> Result<(), E> {
         let mut bytes: [u8; 18] = [0; 18];

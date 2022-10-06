@@ -25,6 +25,12 @@ use dps310::{DPS310, self};
 let address = 0x77;
 let mut dps = DPS310::new(i2c, address, &dps310::Config::new()).unwrap();
 
+while !dps.init_complete().unwrap() || !dps.coef_ready().unwrap() {
+    delay.delay_ms(200_u8);
+}
+
+dps.read_calibration_coefficients().unwrap();
+
 dps.trigger_measurement(true, true, true).unwrap();
 
 if dps.data_ready().unwrap() {
