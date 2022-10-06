@@ -53,6 +53,20 @@ impl CalbrationCoeffs {
     }
 }
 
+#[derive(Debug)]
+pub enum Error<I2CError> {
+    /// I2C Interface Error
+    I2CError(I2CError),
+    /// Invalid measurement mode
+    InvalidMeasurementMode,
+}
+
+impl<I2CError> From<I2CError> for Error<I2CError> {
+    fn from(err: I2CError) -> Self {
+        Error::I2CError(err)
+    }
+}
+
 pub struct DPS310<I2C> {
     i2c: I2C,
     address: u8,
@@ -61,11 +75,11 @@ pub struct DPS310<I2C> {
     temp_res: TemperatureResolution,
 }
 
-impl<I2C, E> DPS310<I2C>
+impl<I2C, I2CError> DPS310<I2C>
 where
-    I2C: i2c::WriteRead<Error = E> + i2c::Write<Error = E>,
+    I2C: i2c::WriteRead<Error = I2CError> + i2c::Write<Error = I2CError>,
 {
-    pub fn new(i2c: I2C, address: u8, config: &Config) -> Result<Self, E> {
+    pub fn new(i2c: I2C, address: u8, config: &Config) -> Result<Self, Error<I2CError>> {
         let mut dsp310 = Self {
             i2c,
             address,
@@ -85,7 +99,7 @@ where
         Ok(dsp310)
     }
 
-    fn apply_config(&mut self, config: &Config) -> Result<(), E> {
+    fn apply_config(&mut self, config: &Config) -> Result<(), Error<I2CError>> {
         // Sec 8.3 PRS_CFG register bits, PM_RATE & PM_PRC fields
         let prs_cfg = self.read_reg(Register::PRS_CFG)?;
 
@@ -127,20 +141,20 @@ where
     }
 
     /// Set measurement mode to `idle`
-    fn standby(&mut self) -> Result<(), E> {
+    fn standby(&mut self) -> Result<(), Error<I2CError>> {
         self.write_reg(Register::MEAS_CFG, 0)
     }
 
     /// Read status bits from MEAS_CFG reg.
     /// MEAS_CFG register is masked with 0xF0
-    pub fn read_status(&mut self) -> Result<u8, E> {
+    pub fn read_status(&mut self) -> Result<u8, Error<I2CError>> {
         let meas_cfg = self.read_reg(Register::MEAS_CFG)?;
         Ok(meas_cfg & 0xF0)
     }
 
     /// Returns the product ID from PROD_ID register.
     /// This value is expected to be 0x1D
-    pub fn get_product_id(&mut self) -> Result<u8, E> {
+    pub fn get_product_id(&mut self) -> Result<u8, Error<I2CError>> {
         // TODO: Make sure that both revision ID and product ID is supported. Sec 8.10
         self.read_reg(Register::PROD_ID)
     }
@@ -151,10 +165,10 @@ where
         temp: bool,
         pres: bool,
         continuous: bool,
-    ) -> Result<(), E> {
+    ) -> Result<(), Error<I2CError>> {
         if (!continuous && temp && pres) || (continuous && !temp && !pres) {
             // unsupported mode, See Sec 8.5 (MEAS_CFG), MEAS_CTRL field values
-            // FIXME: Implement error return
+            return Err(Error::InvalidMeasurementMode);
         }
         // See section 8.5, MEAS_CTRL field description in manual
 
@@ -166,35 +180,35 @@ where
     }
 
     /// Returns true if sensor coeficients are available
-    pub fn coef_ready(&mut self) -> Result<bool, E> {
+    pub fn coef_ready(&mut self) -> Result<bool, Error<I2CError>> {
         // see  sec 8.5, MEAS_CFG, COEF_RDY field (bit 7)
         let status = self.read_status()?;
         Ok((status & (1 << 7)) != 0)
     }
 
     /// Returns true if sensor initialized and ready to take measurements
-    pub fn init_complete(&mut self) -> Result<bool, E> {
+    pub fn init_complete(&mut self) -> Result<bool, Error<I2CError>> {
         // see  sec 8.5, MEAS_CFG, SENSOR_RDY field (bit 6)
         let status = self.read_status()?;
         Ok((status & (1 << 6)) != 0)
     }
 
     /// Returns true if temperature measurement is ready
-    pub fn temp_ready(&mut self) -> Result<bool, E> {
+    pub fn temp_ready(&mut self) -> Result<bool, Error<I2CError>> {
         // See sec 8.5 TMP_RDY field
         let status = self.read_status()?;
         Ok((status & (1 << 5)) != 0)
     }
 
     /// Returns true if pressure measurement is ready
-    pub fn pres_ready(&mut self) -> Result<bool, E> {
+    pub fn pres_ready(&mut self) -> Result<bool, Error<I2CError>> {
         // See sec 8.5 PRS_RDY field
         let status = self.read_status()?;
         Ok((status & (1 << 4)) != 0)
     }
 
     /// Read raw temperature contents
-    fn read_temp_raw(&mut self) -> Result<i32, E> {
+    fn read_temp_raw(&mut self) -> Result<i32, Error<I2CError>> {
         let mut bytes: [u8; 3] = [0, 0, 0];
         self.i2c
             .write_read(self.address, &[Register::TMP_B2.addr()], &mut bytes)?;
@@ -205,7 +219,7 @@ where
     }
 
     /// See section 4.9.2:
-    fn read_temp_scaled(&mut self) -> Result<f32, E> {
+    fn read_temp_scaled(&mut self) -> Result<f32, Error<I2CError>> {
         let raw_sc: f32 = self.read_temp_raw()? as f32 / self.temp_res.get_kt_value();
         Ok(raw_sc)
     }
@@ -216,7 +230,7 @@ where
     /// which have to be initialized with [Self::read_calibration_coefficients()] beforehand.
     /// 
     /// See section 4.9.2 in the datasheet (formula), Sec 8.11 (coefficients)
-    pub fn read_temp_calibrated(&mut self) -> Result<f32, E> {
+    pub fn read_temp_calibrated(&mut self) -> Result<f32, Error<I2CError>> {
         let scaled = self.read_temp_scaled();
         match scaled {
             Ok(raw_sc) => Ok((self.coeffs.C0 as f32 * 0.5) + (self.coeffs.C1 as f32 * raw_sc)),
@@ -225,7 +239,7 @@ where
     }
 
     /// Read raw pressure contents
-    pub fn read_pressure_raw(&mut self) -> Result<i32, E> {
+    pub fn read_pressure_raw(&mut self) -> Result<i32, Error<I2CError>> {
         let mut bytes: [u8; 3] = [0, 0, 0];
         self.i2c
             .write_read(self.address, &[Register::PSR_B2.addr()], &mut bytes)?;
@@ -236,7 +250,7 @@ where
         Ok(pressure)
     }
 
-    fn read_pressure_scaled(&mut self) -> Result<f32, E> {
+    fn read_pressure_scaled(&mut self) -> Result<f32, Error<I2CError>> {
         let pres_raw = self.read_pressure_raw()?;
         let k_p = self.pres_res.get_kP_value();
         let pres_scaled = pres_raw as f32 / k_p;
@@ -251,7 +265,7 @@ where
     /// 
     /// See section 8.11 in the datasheet.
     /// See section 4.9.1 for calculation method.
-    pub fn read_pressure_calibrated(&mut self) -> Result<f32, E> {
+    pub fn read_pressure_calibrated(&mut self) -> Result<f32, Error<I2CError>> {
         let pres_scaled = self.read_pressure_scaled()?;
         let temp_scaled = self.read_temp_scaled()?;
 
@@ -269,16 +283,17 @@ where
     }
 
     /// Issue a full reset and fifo flush
-    pub fn reset(&mut self) -> Result<(), E> {
+    pub fn reset(&mut self) -> Result<(), Error<I2CError>> {
         self.write_reg(Register::RESET, 0b10001001)
     }
 
-    fn write_reg(&mut self, reg: Register, value: u8) -> Result<(), E> {
+    fn write_reg(&mut self, reg: Register, value: u8) -> Result<(), Error<I2CError>> {
         let bytes = [reg.addr(), value];
-        self.i2c.write(self.address, &bytes)
+        self.i2c.write(self.address, &bytes)?;
+        Ok(())
     }
 
-    fn read_reg(&mut self, reg: Register) -> Result<u8, E> {
+    fn read_reg(&mut self, reg: Register) -> Result<u8, Error<I2CError>> {
         let mut buffer: [u8; 1] = [0];
         self.i2c
             .write_read(self.address, &[reg.addr()], &mut buffer)?;
@@ -290,7 +305,7 @@ where
     /// Taken from official Arduino library, see <https://github.com/Infineon/DPS310-Pressure-Sensor/blob/888200c7efd8edb19ce69a2144e28ba31cdad449/src/Dps310.cpp#L89>
     /// 
     /// See Sec 8.11
-    pub fn read_calibration_coefficients(&mut self) -> Result<(), E> {
+    pub fn read_calibration_coefficients(&mut self) -> Result<(), Error<I2CError>> {
         let mut bytes: [u8; 18] = [0; 18];
 
         self.i2c
