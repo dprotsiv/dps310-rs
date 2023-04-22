@@ -1,7 +1,7 @@
 [package]
 edition = "2018"
 name = "dps310"
-version = "0.1.4"
+version = "0.1.5"
 authors = ["dprotsiv"]
 description = "A platform agnostic driver to interface with the DPS310 barometric pressure & temp sensor through I2C"
 documentation = "https://docs.rs/dps310"
