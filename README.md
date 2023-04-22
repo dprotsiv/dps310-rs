@@ -33,9 +33,16 @@ dps.read_calibration_coefficients().unwrap();
 
 dps.trigger_measurement(true, true, true).unwrap();
 
-if dps.data_ready().unwrap() {
-    let pressure = dps.read_pressure_calibrated().unwrap();
-    let temp = dps.read_temp_calibrated().unwrap();
-    iprintln!(stim, "pressure: {:.1} [Pa]\t temp: {:.1} [˚C]", pressure, temp);
+loop {
+    delay.delay_ms(200_u8);
+    if dps.temp_ready().unwrap() {
+        let temp = dps.read_temp_calibrated().unwrap();
+        iprintln!(stim, "Temperature: {:.1} [C]", temp);
+    }
+    
+    if dps.pres_ready().unwrap() {
+        let pressure = dps.read_pressure_calibrated().unwrap();
+        iprintln!(stim, "Pressure: {:.1} [Pa]", pressure);
+    }
 }
 ```
