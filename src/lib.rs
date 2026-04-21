@@ -12,8 +12,7 @@
 mod config;
 mod register;
 
-use embedded_hal as hal;
-use hal::blocking::i2c;
+use embedded_hal::i2c::I2c;
 
 pub use config::*;
 pub use register::Register;
@@ -77,7 +76,7 @@ pub struct DPS310<I2C> {
 
 impl<I2C, I2CError> DPS310<I2C>
 where
-    I2C: i2c::WriteRead<Error = I2CError> + i2c::Write<Error = I2CError>,
+    I2C: I2c<Error = I2CError>,
 {
     pub fn new(i2c: I2C, address: u8, config: &Config) -> Result<Self, Error<I2CError>> {
         let mut dsp310 = Self {

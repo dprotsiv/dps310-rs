@@ -15,10 +15,10 @@ repository = "https://github.com/dprotsiv/dps310-rs"
 targets = ["thumbv6m-none-eabi"]
 
 [dependencies]
-embedded-hal = "0.2"
+embedded-hal = "1.0"
 
 [dev-dependencies]
 cortex-m = "0.7"
 cortex-m-rt = "0.7"
 panic-halt = "0.2"
-stm32f3xx-hal = { version = "0.9", features = ["stm32f303xc", "rt"] }
+stm32f3xx-hal = { version = "0.10", features = ["stm32f303xc", "rt"] }
